@@ -8,7 +8,9 @@ services:
     plan: free
     buildCommand: npm ci --omit=optional
     startCommand: node server/index.js
-    healthCheckPath: /api/health
+    # Must be the unauthenticated probe - /api/health sits behind the access gate
+    # and would fail every health check with a 401.
+    healthCheckPath: /api/ping
     envVars:
       - key: ROTOBOT_HOSTED
         value: "1"
@@ -26,8 +28,12 @@ services:
         sync: false
       - key: YAHOO_REDIRECT_URI
         sync: false
-    # Linked accounts live on disk; without this they reset on every deploy.
-    disk:
-      name: rotobot-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
+    # NOTE: linked accounts are stored in data/ on local disk, which is ephemeral
+    # here. On the free plan you'll re-link after a redeploy or a spin-down —
+    # annoying, not destructive. Render only allows persistent disks on paid
+    # instances, so to keep them, move to a Starter plan and add:
+    #
+    #   disk:
+    #     name: rotobot-data
+    #     mountPath: /opt/render/project/src/data
+    #     sizeGB: 1

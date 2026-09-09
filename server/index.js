@@ -23,6 +23,11 @@ app.post("/api/auth/login", handleLogin);
 app.get("/api/auth/status", (req, res) => res.json({ authRequired: authEnabled }));
 app.get("/login", (req, res) => res.sendFile(path.join(here, "../public/login.html")));
 
+// Liveness probe for hosting platforms. Deliberately public and deliberately
+// empty of detail - the gated /api/health below carries the real status, and a
+// health check that 401s would fail every deploy.
+app.get("/api/ping", (req, res) => res.json({ ok: true }));
+
 // Everything below this line requires a session when ROTOBOT_ACCESS_CODE is set.
 app.use(gate);
 
