@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>RotoBot — AI Fantasy Manager</title>
+<link rel="stylesheet" href="/styles.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏈</text></svg>" />
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo"><span class="logo-mark">🏈</span> RotoBot</div>
+    <div class="league-picker">
+      <select id="league-select" title="Active league"></select>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="chat" class="active">Assistant</button>
+    <button data-tab="team">My Team</button>
+    <button data-tab="matchup">Matchup</button>
+    <button data-tab="waivers">Waivers</button>
+    <button data-tab="league">League</button>
+    <button data-tab="settings">Settings</button>
+  </nav>
+
+  <main>
+    <!-- Assistant -->
+    <section class="panel active" id="panel-chat">
+      <div id="messages"></div>
+      <div class="suggestions" id="suggestions"></div>
+      <form id="composer">
+        <textarea id="input" rows="1" placeholder="Ask about your lineup, waivers, or a trade…"></textarea>
+        <button type="submit" id="send" title="Send">↑</button>
+      </form>
+    </section>
+
+    <!-- My Team -->
+    <section class="panel" id="panel-team"></section>
+
+    <!-- Matchup -->
+    <section class="panel" id="panel-matchup"></section>
+
+    <!-- Waivers -->
+    <section class="panel" id="panel-waivers"></section>
+
+    <!-- League -->
+    <section class="panel" id="panel-league"></section>
+
+    <!-- Settings -->
+    <section class="panel" id="panel-settings">
+      <div class="card">
+        <div class="row-between">
+          <div>
+            <h2>Sleeper</h2>
+            <p class="sub">Public API — just your username, no password needed.</p>
+          </div>
+          <span class="pill" id="pill-sleeper">Not linked</span>
+        </div>
+        <div id="sleeper-body">
+          <div class="field" style="margin-top:12px">
+            <label for="sleeper-username">Sleeper username</label>
+            <input type="text" id="sleeper-username" placeholder="e.g. gridiron_gary" autocomplete="username" />
+          </div>
+          <button class="btn" id="sleeper-link">Link Sleeper</button>
+        </div>
+        <div class="status-msg" id="sleeper-status"></div>
+      </div>
+
+      <div class="card">
+        <div class="row-between">
+          <div>
+            <h2>ESPN</h2>
+            <p class="sub">League ID + season. Private leagues also need your cookies.</p>
+          </div>
+          <span class="pill" id="pill-espn">Not linked</span>
+        </div>
+        <div id="espn-body">
+          <div class="field" style="margin-top:12px">
+            <label for="espn-league">League ID</label>
+            <input type="text" id="espn-league" placeholder="e.g. 1234567" />
+          </div>
+          <div class="field">
+            <label for="espn-season">Season</label>
+            <input type="text" id="espn-season" placeholder="2026" />
+          </div>
+          <div class="field">
+            <label for="espn-s2">espn_s2 cookie (private leagues)</label>
+            <input type="password" id="espn-s2" placeholder="AEB..." autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="espn-swid">SWID cookie (private leagues)</label>
+            <input type="password" id="espn-swid" placeholder="{XXXXXXXX-....}" autocomplete="off" />
+          </div>
+          <button class="btn" id="espn-link">Link ESPN</button>
+          <p class="hint">
+            To get your cookies: sign in at fantasy.espn.com, open DevTools → Application → Cookies →
+            <code>espn.com</code>, and copy the <code>espn_s2</code> and <code>SWID</code> values.
+            They're stored only on this machine and sent only to ESPN.
+          </p>
+        </div>
+        <div class="status-msg" id="espn-status"></div>
+      </div>
+
+      <div class="card">
+        <div class="row-between">
+          <div>
+            <h2>Yahoo</h2>
+            <p class="sub">OAuth2 with your own free Yahoo developer app.</p>
+          </div>
+          <span class="pill" id="pill-yahoo">Not linked</span>
+        </div>
+        <div id="yahoo-body">
+          <div class="field" style="margin-top:12px">
+            <label for="yahoo-id">Client ID (Consumer Key)</label>
+            <input type="text" id="yahoo-id" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="yahoo-secret">Client Secret</label>
+            <input type="password" id="yahoo-secret" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="yahoo-redirect">Redirect URI</label>
+            <input type="text" id="yahoo-redirect" />
+          </div>
+          <button class="btn" id="yahoo-link">Save & Authorize with Yahoo</button>
+          <p class="hint">
+            Create an app at <a href="https://developer.yahoo.com/apps/create/" target="_blank" rel="noopener">developer.yahoo.com</a>
+            with Fantasy Sports <strong>Read</strong> permission, then paste the Redirect URI shown above into it.
+            Yahoo requires HTTPS for redirect URIs, so local setup needs a tunnel (e.g. ngrok).
+          </p>
+        </div>
+        <div class="status-msg" id="yahoo-status"></div>
+      </div>
+
+      <div class="card">
+        <h2>Assistant</h2>
+        <p class="sub" id="ai-status">Checking…</p>
+        <p class="hint">
+          The AI runs on the Claude API. Put <code>ANTHROPIC_API_KEY=sk-ant-…</code> in a
+          <code>.env</code> file at the project root and restart the server.
+        </p>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>
