@@ -365,6 +365,23 @@ table.standings td.num { text-align: right; font-variant-numeric: tabular-nums; 
 }
 .btn.ghost:hover { color: var(--text); border-color: var(--danger); }
 
+details.fallback {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+details.fallback summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  list-style: none;
+}
+details.fallback summary::-webkit-details-marker { display: none; }
+details.fallback summary::before { content: "▸ "; }
+details[open].fallback summary::before { content: "▾ "; }
+details.fallback summary:hover { color: var(--text); }
+
 .row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .status-msg { font-size: 13px; margin-top: 10px; }
 .status-msg.ok { color: var(--accent); }

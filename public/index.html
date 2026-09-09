@@ -72,33 +72,47 @@
         <div class="row-between">
           <div>
             <h2>ESPN</h2>
-            <p class="sub">League ID + season. Private leagues also need your cookies.</p>
+            <p class="sub">Log in once and your leagues load automatically.</p>
           </div>
           <span class="pill" id="pill-espn">Not linked</span>
         </div>
         <div id="espn-body">
-          <div class="field" style="margin-top:12px">
-            <label for="espn-league">League ID</label>
-            <input type="text" id="espn-league" placeholder="e.g. 1234567" />
-          </div>
-          <div class="field">
-            <label for="espn-season">Season</label>
-            <input type="text" id="espn-season" placeholder="2026" />
-          </div>
-          <div class="field">
-            <label for="espn-s2">espn_s2 cookie (private leagues)</label>
-            <input type="password" id="espn-s2" placeholder="AEB..." autocomplete="off" />
-          </div>
-          <div class="field">
-            <label for="espn-swid">SWID cookie (private leagues)</label>
-            <input type="password" id="espn-swid" placeholder="{XXXXXXXX-....}" autocomplete="off" />
-          </div>
-          <button class="btn" id="espn-link">Link ESPN</button>
+          <button class="btn" id="espn-login" style="margin-top:12px">Log in with ESPN</button>
           <p class="hint">
-            To get your cookies: sign in at fantasy.espn.com, open DevTools → Application → Cookies →
-            <code>espn.com</code>, and copy the <code>espn_s2</code> and <code>SWID</code> values.
-            They're stored only on this machine and sent only to ESPN.
+            Opens ESPN's own login page in a browser window. You type your password there —
+            never here — and this app just picks up the session afterward.
           </p>
+          <div id="espn-league-pick" hidden>
+            <div class="field" style="margin-top:12px">
+              <label for="espn-league-select">Active ESPN league</label>
+              <select id="espn-league-select"></select>
+            </div>
+          </div>
+          <details class="fallback">
+            <summary>Enter cookies manually instead</summary>
+            <div class="field" style="margin-top:12px">
+              <label for="espn-league">League ID</label>
+              <input type="text" id="espn-league" placeholder="e.g. 1234567" />
+            </div>
+            <div class="field">
+              <label for="espn-season">Season</label>
+              <input type="text" id="espn-season" placeholder="2026" />
+            </div>
+            <div class="field">
+              <label for="espn-s2">espn_s2 cookie</label>
+              <input type="password" id="espn-s2" placeholder="AEB..." autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="espn-swid">SWID cookie</label>
+              <input type="password" id="espn-swid" placeholder="{XXXXXXXX-....}" autocomplete="off" />
+            </div>
+            <button class="btn ghost" id="espn-link">Link with cookies</button>
+            <p class="hint">
+              For headless servers, or if the browser login won't open. Sign in at fantasy.espn.com,
+              then DevTools → Application → Cookies → <code>espn.com</code> and copy
+              <code>espn_s2</code> and <code>SWID</code>.
+            </p>
+          </details>
         </div>
         <div class="status-msg" id="espn-status"></div>
       </div>
@@ -107,29 +121,37 @@
         <div class="row-between">
           <div>
             <h2>Yahoo</h2>
-            <p class="sub">OAuth2 with your own free Yahoo developer app.</p>
+            <p class="sub">Standard Yahoo sign-in. One-time app setup required.</p>
           </div>
           <span class="pill" id="pill-yahoo">Not linked</span>
         </div>
         <div id="yahoo-body">
-          <div class="field" style="margin-top:12px">
-            <label for="yahoo-id">Client ID (Consumer Key)</label>
-            <input type="text" id="yahoo-id" autocomplete="off" />
-          </div>
-          <div class="field">
-            <label for="yahoo-secret">Client Secret</label>
-            <input type="password" id="yahoo-secret" autocomplete="off" />
-          </div>
-          <div class="field">
-            <label for="yahoo-redirect">Redirect URI</label>
-            <input type="text" id="yahoo-redirect" />
-          </div>
-          <button class="btn" id="yahoo-link">Save & Authorize with Yahoo</button>
-          <p class="hint">
-            Create an app at <a href="https://developer.yahoo.com/apps/create/" target="_blank" rel="noopener">developer.yahoo.com</a>
-            with Fantasy Sports <strong>Read</strong> permission, then paste the Redirect URI shown above into it.
-            Yahoo requires HTTPS for redirect URIs, so local setup needs a tunnel (e.g. ngrok).
+          <button class="btn" id="yahoo-login" style="margin-top:12px">Log in with Yahoo</button>
+          <p class="hint" id="yahoo-hint">
+            Sends you to Yahoo's own sign-in page. Your password is never entered here.
           </p>
+          <details class="fallback" id="yahoo-setup">
+            <summary>App credentials (one-time setup)</summary>
+            <p class="hint" style="margin-top:10px">
+              Yahoo requires every app to register its own credentials. Create one at
+              <a href="https://developer.yahoo.com/apps/create/" target="_blank" rel="noopener">developer.yahoo.com</a>
+              with Fantasy Sports <strong>Read</strong> permission and paste the Redirect URI below into it.
+              Best set once in <code>.env</code> as <code>YAHOO_CLIENT_ID</code> / <code>YAHOO_CLIENT_SECRET</code>.
+              Yahoo requires an HTTPS redirect, so local use needs a tunnel such as ngrok.
+            </p>
+            <div class="field">
+              <label for="yahoo-id">Client ID (Consumer Key)</label>
+              <input type="text" id="yahoo-id" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="yahoo-secret">Client Secret</label>
+              <input type="password" id="yahoo-secret" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="yahoo-redirect">Redirect URI</label>
+              <input type="text" id="yahoo-redirect" />
+            </div>
+          </details>
         </div>
         <div class="status-msg" id="yahoo-status"></div>
       </div>

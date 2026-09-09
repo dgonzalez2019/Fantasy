@@ -32,6 +32,45 @@ function headers(account) {
   return h;
 }
 
+// Lists every fantasy football league the logged-in user belongs to, so a
+// successful login doesn't still require them to paste a league ID.
+// ESPN's "fan" API keys off the SWID.
+export async function discoverLeagues({ espnS2, swid }) {
+  const id = encodeURIComponent(swid);
+  const url =
+    `https://fan.api.espn.com/apis/v2/fans/${id}` +
+    `?configuration=SITE_EDITION&displayEvents=true&displayNow=true&displayRecs=false` +
+    `&source=ESPN.COM+-+FAM&lang=en&section=espn&region=us`;
+
+  const data = await fetchJson(url, { headers: headers({ espnS2, swid }) });
+
+  const leagues = [];
+  const seen = new Set();
+  for (const pref of data?.preferences || []) {
+    const entry = pref?.metaData?.entry;
+    if (!entry) continue;
+    // Football only; ESPN mixes all fantasy sports into one feed.
+    const abbrev = entry.abbrev || entry.groups?.[0]?.groupAbbrev || "";
+    for (const group of entry.groups || []) {
+      const leagueId = String(group.groupId ?? "");
+      if (!leagueId || seen.has(leagueId)) continue;
+      // gameId 1 == NFL fantasy football.
+      if (entry.gameId != null && Number(entry.gameId) !== 1) continue;
+      if (!entry.gameId && abbrev && !/ffl|football/i.test(abbrev)) continue;
+      seen.add(leagueId);
+      leagues.push({
+        id: leagueId,
+        name: group.groupName || `ESPN League ${leagueId}`,
+        season: String(entry.seasonId || new Date().getFullYear()),
+        size: Number(group.groupSize || 0),
+        scoring: "ESPN",
+        teamName: entry.entryMetadata?.teamName || entry.name || null,
+      });
+    }
+  }
+  return leagues;
+}
+
 export async function fetchLeague(account, views = ["mTeam", "mRoster", "mMatchupScore", "mSettings"]) {
   const { leagueId, season } = account;
   const qs = views.map((v) => `view=${v}`).join("&");

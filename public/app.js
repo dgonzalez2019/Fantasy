@@ -433,7 +433,14 @@ function setStatus(id, message, ok) {
 
 async function loadAccounts() {
   try {
-    const { accounts, mock } = await api("/api/accounts");
+    const { accounts, mock, capabilities } = await api("/api/accounts");
+    if (capabilities) {
+      // Yahoo configured in .env means the setup fields aren't needed at all.
+      $("#yahoo-setup").hidden = capabilities.yahooConfigured;
+      $("#yahoo-hint").textContent = capabilities.yahooConfigured
+        ? "Sends you to Yahoo's own sign-in page. Your password is never entered here."
+        : "Yahoo needs one-time app credentials before you can log in — see below.";
+    }
     if (mock && !document.querySelector(".banner")) {
       const banner = el("div", "banner", "Mock data mode — showing a sample league. Restart without ROTOBOT_MOCK=1 to use live data.");
       $("main").prepend(banner);
@@ -462,13 +469,23 @@ async function loadAccounts() {
         $("#sleeper-username").value = acct.username || "";
       }
       if (acct.provider === "espn" && acct.linked) {
-        setStatus("#espn-status", `Linked: league ${acct.leagueId} (${acct.season})${acct.teamName ? ` · ${acct.teamName}` : ""}`, true);
+        setStatus(
+          "#espn-status",
+          `Linked${acct.teamName ? ` · ${acct.teamName}` : ""}${acct.leagues.length ? ` · ${acct.leagues.length} league(s)` : ""}`,
+          true
+        );
         $("#espn-league").value = acct.leagueId || "";
         $("#espn-season").value = acct.season || "";
+        renderEspnLeaguePicker(acct.leagues, acct.leagueId);
       }
       if (acct.provider === "yahoo") {
-        if (acct.authorized) setStatus("#yahoo-status", `Authorized · ${acct.leagues.length} league(s)`, true);
-        else if (acct.hasCredentials) setStatus("#yahoo-status", "Credentials saved — click Authorize to finish.", false);
+        if (acct.authorized) {
+          setStatus("#yahoo-status", `Logged in · ${acct.leagues.length} league(s)`, true);
+        } else if (!acct.hasCredentials) {
+          setStatus("#yahoo-status", "Add app credentials below before logging in.", false);
+        } else {
+          setStatus("#yahoo-status", "", true);
+        }
         if (acct.redirectUri) $("#yahoo-redirect").value = acct.redirectUri;
       }
     }
@@ -491,6 +508,84 @@ $("#sleeper-link").addEventListener("click", async () => {
     await loadAccounts();
   } catch (err) {
     setStatus("#sleeper-status", err.message, false);
+  }
+});
+
+// --- ESPN browser handoff ---
+let espnPollTimer = null;
+
+function renderEspnLeaguePicker(leagues, activeId) {
+  const wrap = $("#espn-league-pick");
+  const select = $("#espn-league-select");
+  if (!leagues?.length) {
+    wrap.hidden = true;
+    return;
+  }
+  select.innerHTML = "";
+  leagues.forEach((l) => {
+    const opt = el("option", null, `${l.name}${l.season ? ` · ${l.season}` : ""}`);
+    opt.value = l.id;
+    select.appendChild(opt);
+  });
+  if (activeId) select.value = String(activeId);
+  wrap.hidden = false;
+}
+
+$("#espn-league-select").addEventListener("change", async (e) => {
+  try {
+    await api("/api/accounts/espn/select", {
+      method: "POST",
+      body: JSON.stringify({ leagueId: e.target.value }),
+    });
+    await loadLeagues();
+    setStatus("#espn-status", "Active ESPN league updated.", true);
+  } catch (err) {
+    setStatus("#espn-status", err.message, false);
+  }
+});
+
+async function pollEspnLogin() {
+  try {
+    const s = await api("/api/accounts/espn/login/status");
+    if (s.status === "waiting" || s.status === "launching" || s.status === "capturing") {
+      setStatus("#espn-status", s.message, true);
+      return;
+    }
+    clearInterval(espnPollTimer);
+    espnPollTimer = null;
+    $("#espn-login").disabled = false;
+    if (s.status === "done") {
+      const count = s.leagues?.length || 0;
+      setStatus(
+        "#espn-status",
+        count ? `Logged in · ${count} league(s) found` : "Logged in, but no football leagues were found on this account.",
+        true
+      );
+      renderEspnLeaguePicker(s.leagues, s.leagues?.[0]?.id);
+      await loadLeagues();
+      await loadAccounts();
+    } else if (s.status === "error") {
+      setStatus("#espn-status", s.message, false);
+    }
+  } catch (err) {
+    clearInterval(espnPollTimer);
+    espnPollTimer = null;
+    $("#espn-login").disabled = false;
+    setStatus("#espn-status", err.message, false);
+  }
+}
+
+$("#espn-login").addEventListener("click", async () => {
+  $("#espn-login").disabled = true;
+  setStatus("#espn-status", "Opening a browser window…", true);
+  try {
+    await api("/api/accounts/espn/login", { method: "POST" });
+    if (espnPollTimer) clearInterval(espnPollTimer);
+    espnPollTimer = setInterval(pollEspnLogin, 1500);
+    pollEspnLogin();
+  } catch (err) {
+    $("#espn-login").disabled = false;
+    setStatus("#espn-status", err.message, false);
   }
 });
 
@@ -517,21 +612,23 @@ $("#espn-link").addEventListener("click", async () => {
   }
 });
 
-$("#yahoo-link").addEventListener("click", async () => {
-  const clientId = $("#yahoo-id").value.trim();
-  const clientSecret = $("#yahoo-secret").value.trim();
-  const redirectUri = $("#yahoo-redirect").value.trim();
-  if (!clientId || !clientSecret || !redirectUri) {
-    return setStatus("#yahoo-status", "All three Yahoo fields are required.", false);
-  }
+$("#yahoo-login").addEventListener("click", async () => {
+  // With credentials in .env this sends no input at all; the fields below are
+  // only used when Yahoo hasn't been configured yet.
+  const body = {
+    clientId: $("#yahoo-id").value.trim(),
+    clientSecret: $("#yahoo-secret").value.trim(),
+    redirectUri: $("#yahoo-redirect").value.trim(),
+  };
   try {
-    const { authUrl } = await api("/api/accounts/yahoo/credentials", {
+    const { authUrl } = await api("/api/accounts/yahoo/login", {
       method: "POST",
-      body: JSON.stringify({ clientId, clientSecret, redirectUri }),
+      body: JSON.stringify(body),
     });
     window.location.href = authUrl;
   } catch (err) {
     setStatus("#yahoo-status", err.message, false);
+    $("#yahoo-setup").open = true;
   }
 });
 

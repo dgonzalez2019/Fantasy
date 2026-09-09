@@ -2,6 +2,7 @@
 import express from "express";
 import * as sleeper from "../services/sleeper.js";
 import * as espn from "../services/espn.js";
+import * as espnLogin from "../services/espn-login.js";
 import * as yahoo from "../services/yahoo.js";
 import { readStore, getAccount, setAccount, removeAccount } from "../lib/store.js";
 import { MOCK } from "../lib/mock.js";
@@ -27,7 +28,7 @@ function publicView(provider, account) {
   if (provider === "yahoo") {
     return {
       ...base,
-      hasCredentials: Boolean(account.clientId && account.clientSecret),
+      hasCredentials: Boolean(yahoo.configuredCredentials() || (account.clientId && account.clientSecret)),
       authorized: Boolean(account.accessToken),
       redirectUri: account.redirectUri,
     };
@@ -39,6 +40,11 @@ router.get("/", (req, res) => {
   const store = readStore();
   res.json({
     mock: MOCK,
+    // Tells the UI whether it can offer one-click login buttons.
+    capabilities: {
+      espnBrowserLogin: true,
+      yahooConfigured: Boolean(yahoo.configuredCredentials()),
+    },
     accounts: ["sleeper", "espn", "yahoo"].map((p) => publicView(p, store.accounts[p])),
   });
 });
@@ -103,27 +109,93 @@ router.post("/espn", async (req, res, next) => {
   }
 });
 
-// ---- Yahoo: OAuth2 (user supplies their own registered app credentials) ----
-router.post("/yahoo/credentials", (req, res) => {
-  const clientId = String(req.body.clientId || "").trim();
-  const clientSecret = String(req.body.clientSecret || "").trim();
-  const redirectUri = String(req.body.redirectUri || "").trim();
-  if (!clientId || !clientSecret || !redirectUri) {
-    return res.status(400).json({ error: "clientId, clientSecret, and redirectUri are all required." });
+// ---- ESPN: browser handoff login ----
+// Opens ESPN's real login page in a browser window and captures the session
+// cookies once the user signs in. No password ever passes through this app.
+router.post("/espn/login", async (req, res, next) => {
+  try {
+    const status = await espnLogin.start(async ({ espnS2, swid }) => {
+      const leagues = await espn.discoverLeagues({ espnS2, swid });
+      const first = leagues[0];
+      setAccount("espn", {
+        espnS2,
+        swid,
+        leagueId: first?.id || "",
+        season: first?.season || String(new Date().getFullYear()),
+        myTeamName: first?.teamName || null,
+        leagues,
+      });
+    });
+    res.json(status);
+  } catch (err) {
+    next(err);
   }
+});
+
+router.get("/espn/login/status", (req, res) => {
+  const status = espnLogin.getStatus();
+  const account = getAccount("espn");
+  res.json({ ...status, leagues: account?.leagues || [] });
+});
+
+router.post("/espn/login/cancel", async (req, res) => {
+  await espnLogin.cancel();
+  res.json({ ok: true });
+});
+
+// Switch which discovered ESPN league is the active one.
+router.post("/espn/select", async (req, res, next) => {
+  try {
+    const account = getAccount("espn");
+    if (!account) return res.status(400).json({ error: "ESPN is not linked." });
+    const leagueId = String(req.body.leagueId || "").trim();
+    const league = (account.leagues || []).find((l) => String(l.id) === leagueId);
+    if (!league) return res.status(404).json({ error: "That league isn't in your ESPN account." });
+    setAccount("espn", {
+      ...account,
+      leagueId: league.id,
+      season: league.season,
+      myTeamName: league.teamName || account.myTeamName,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---- Yahoo: OAuth2 ----
+// Starts the OAuth flow. With YAHOO_CLIENT_ID/SECRET configured this needs no
+// input at all, so the UI is a single "Log in with Yahoo" button.
+router.post("/yahoo/login", (req, res) => {
   const existing = getAccount("yahoo") || {};
-  const account = setAccount("yahoo", { ...existing, clientId, clientSecret, redirectUri });
-  res.json({
-    ok: true,
-    authUrl: yahoo.buildAuthUrl({ clientId, redirectUri }),
-    account: publicView("yahoo", account),
+  const redirectUri =
+    String(req.body.redirectUri || "").trim() || existing.redirectUri || process.env.YAHOO_REDIRECT_URI;
+  const { clientId, clientSecret } = yahoo.resolveCredentials({
+    ...existing,
+    clientId: String(req.body.clientId || "").trim() || existing.clientId,
+    clientSecret: String(req.body.clientSecret || "").trim() || existing.clientSecret,
   });
+
+  if (!clientId || !clientSecret) {
+    return res.status(400).json({
+      error:
+        "Yahoo needs app credentials. Set YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET in your .env file, or enter them below.",
+    });
+  }
+  if (!redirectUri) {
+    return res.status(400).json({ error: "A redirect URI is required." });
+  }
+
+  setAccount("yahoo", { ...existing, clientId, clientSecret, redirectUri });
+  res.json({ ok: true, authUrl: yahoo.buildAuthUrl({ clientId, redirectUri }) });
 });
 
 router.get("/yahoo/callback", async (req, res) => {
   const account = getAccount("yahoo");
   const code = req.query.code;
-  if (!account?.clientId) return res.status(400).send("Yahoo credentials are not configured yet.");
+  if (!yahoo.resolveCredentials(account || {}).clientId) {
+    return res.status(400).send("Yahoo credentials are not configured yet.");
+  }
   if (!code) return res.status(400).send(`Yahoo returned no authorization code. ${req.query.error || ""}`);
   try {
     await yahoo.exchangeCode(account, String(code));

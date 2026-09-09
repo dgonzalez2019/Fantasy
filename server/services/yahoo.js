@@ -9,6 +9,25 @@ const AUTH_URL = "https://api.login.yahoo.com/oauth2/request_auth";
 const TOKEN_URL = "https://api.login.yahoo.com/oauth2/get_token";
 const API = "https://fantasysports.yahooapis.com/fantasy/v2";
 
+// Credentials can come from the environment (set once, then login is one click)
+// or from the Settings form as a fallback.
+export function configuredCredentials() {
+  const clientId = process.env.YAHOO_CLIENT_ID;
+  const clientSecret = process.env.YAHOO_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+  return { clientId, clientSecret };
+}
+
+// Env credentials win, so a configured deployment ignores stale stored ones.
+export function resolveCredentials(account = {}) {
+  const env = configuredCredentials();
+  return {
+    clientId: env?.clientId || account.clientId,
+    clientSecret: env?.clientSecret || account.clientSecret,
+    redirectUri: account.redirectUri || process.env.YAHOO_REDIRECT_URI,
+  };
+}
+
 export function buildAuthUrl({ clientId, redirectUri }) {
   const params = new URLSearchParams({
     client_id: clientId,
@@ -20,7 +39,11 @@ export function buildAuthUrl({ clientId, redirectUri }) {
 }
 
 async function tokenRequest(account, body) {
-  const basic = Buffer.from(`${account.clientId}:${account.clientSecret}`).toString("base64");
+  const { clientId, clientSecret } = resolveCredentials(account);
+  if (!clientId || !clientSecret) {
+    throw new HttpError(400, "Yahoo credentials are not configured.");
+  }
+  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
   return fetchJson(TOKEN_URL, {
     method: "POST",
     headers: {

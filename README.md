@@ -37,31 +37,39 @@ npm run mock
 Serves a full sample league so you can click through every tab. The AI chat still needs
 a real API key.
 
-## Linking your accounts
+## Logging in
 
-### Sleeper — easiest
-Just your username. Sleeper's API is public and read-only, so there's no password or
-OAuth step. Enter it in Settings and your leagues appear immediately.
+**Your password is never typed into this app.** Each provider hands you off to its own
+sign-in page. There is no password field anywhere in this UI, by design — a local app
+rendering an ESPN or Yahoo password form is indistinguishable from a phishing page, and
+it would put your credentials through code that has no business holding them.
 
-### ESPN
-Needs your **league ID** (the `leagueId=` number in your ESPN fantasy URL) and the
-**season**. Public leagues work with just those two.
+### Sleeper
+Just your username. Sleeper's API is public and read-only, so there's no login at all.
 
-Private leagues also need two cookies. Sign in at fantasy.espn.com, open DevTools →
-Application → Cookies → `espn.com`, and copy `espn_s2` and `SWID`. ESPN offers no public
-OAuth for third-party apps, so this is the standard approach for every ESPN fantasy tool.
-The cookies are stored only on your machine and sent only to ESPN.
+### ESPN — "Log in with ESPN"
+ESPN publishes no OAuth for third-party apps. The only thing that opens a private league
+is the session cookie ESPN issues to a logged-in browser, so this app gets one the honest
+way: it opens a real browser window on ESPN's own login page, you sign in normally (2FA
+included), and it reads the session back out once you're through. Your leagues are then
+discovered automatically — no league ID to hunt down.
 
-### Yahoo
-Yahoo requires each app to register its own credentials — there's no way around this.
+Needs a desktop session and a one-time `npx playwright install chromium`. On a headless
+box, or if the window won't open, *Enter cookies manually instead* is still there:
+DevTools → Application → Cookies → `espn.com`, copy `espn_s2` and `SWID`.
+
+### Yahoo — "Log in with Yahoo"
+Yahoo has real OAuth2, so login is one click. Yahoo does require every app to register
+its own credentials, which is a one-time setup you do as the developer:
 
 1. Create an app at [developer.yahoo.com/apps/create](https://developer.yahoo.com/apps/create/)
 2. Give it **Fantasy Sports → Read** permission
-3. Paste the Redirect URI shown in Settings into the Yahoo app config
-4. Copy the Client ID and Secret back into Settings, then click Authorize
+3. Put the Client ID, Secret, and Redirect URI in `.env` (see `.env.example`)
 
-Yahoo requires HTTPS redirect URIs, so local development needs a tunnel such as
-[ngrok](https://ngrok.com/). Tokens refresh automatically once authorized.
+After that the Settings tab is just a login button, and tokens refresh on their own.
+Yahoo requires an HTTPS redirect URI, so local use needs a tunnel such as
+[ngrok](https://ngrok.com/). You can also paste the credentials into Settings instead of
+`.env` if you'd rather not restart the server.
 
 ## How the AI stays grounded
 
@@ -86,6 +94,9 @@ curl "localhost:3000/api/chat/context?provider=sleeper&leagueId=YOUR_LEAGUE_ID"
 | `PORT` | `3000` | HTTP port |
 | `ROTOBOT_MODEL` | `claude-opus-5` | Model used for chat |
 | `ROTOBOT_MOCK` | unset | `1` serves sample data instead of live APIs |
+| `YAHOO_CLIENT_ID` | — | Makes Yahoo a one-click login |
+| `YAHOO_CLIENT_SECRET` | — | Paired with the above |
+| `YAHOO_REDIRECT_URI` | — | Must match your Yahoo app config (HTTPS) |
 
 ## API
 
@@ -94,8 +105,11 @@ curl "localhost:3000/api/chat/context?provider=sleeper&leagueId=YOUR_LEAGUE_ID"
 | `GET /api/health` | Server status, mock mode, whether a key is configured |
 | `GET /api/accounts` | Linked accounts (secrets redacted) |
 | `POST /api/accounts/sleeper` | Link by username |
-| `POST /api/accounts/espn` | Link by league ID + optional cookies |
-| `POST /api/accounts/yahoo/credentials` | Save OAuth app creds, returns auth URL |
+| `POST /api/accounts/espn/login` | Open ESPN's login page in a browser |
+| `GET /api/accounts/espn/login/status` | Poll the login handoff |
+| `POST /api/accounts/espn/select` | Choose the active ESPN league |
+| `POST /api/accounts/espn` | Link by league ID + cookies (fallback) |
+| `POST /api/accounts/yahoo/login` | Begin Yahoo OAuth, returns auth URL |
 | `DELETE /api/accounts/:provider` | Disconnect |
 | `GET /api/fantasy/leagues` | All leagues across linked providers |
 | `GET /api/fantasy/overview` | Roster, matchup, standings for one league |
@@ -123,3 +137,5 @@ public/                 index.html, app.js, styles.css — no build step
   projected point totals.
 - **Single user.** Credentials sit in a local JSON file with no auth layer in front. Don't
   deploy this to a public host as-is — add authentication and encrypt the store first.
+- **ESPN sessions expire.** Cookies last a few weeks; when calls start failing, click
+  *Log in with ESPN* again. Yahoo refreshes its own tokens and shouldn't need this.
