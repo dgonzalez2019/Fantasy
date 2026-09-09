@@ -10,6 +10,13 @@ const MODEL = process.env.ROTOBOT_MODEL || "claude-opus-5";
 
 let client = null;
 function getClient() {
+  // Checked explicitly: the SDK's own missing-credential error names five
+  // internal options and reads as a bug rather than "you forgot your key".
+  if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
+    const err = new Error("No Claude API key configured.");
+    err.code = "NO_API_KEY";
+    throw err;
+  }
   if (!client) client = new Anthropic(); // reads ANTHROPIC_API_KEY / auth profile from env
   return client;
 }

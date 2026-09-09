@@ -652,7 +652,9 @@ $("#yahoo-login").addEventListener("click", async () => {
     const health = await api("/api/health");
     $("#ai-status").textContent = health.aiConfigured
       ? `Connected · model ${health.model}`
-      : "No API key detected — set ANTHROPIC_API_KEY and restart.";
+      : health.hosted
+      ? "No API key set — add ANTHROPIC_API_KEY in your hosting dashboard. Everything else works without it."
+      : "No API key set — add ANTHROPIC_API_KEY to .env and restart. Everything else works without it.";
   } catch {
     $("#ai-status").textContent = "Server unreachable.";
   }

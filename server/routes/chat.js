@@ -34,9 +34,16 @@ router.post("/", async (req, res) => {
     await streamChat({ history, provider, leagueId }, (event) => sse(res, event));
   } catch (err) {
     console.error("Chat stream failed:", err);
+    // Where to put the key differs by deployment, so name the right place.
+    const keyLocation =
+      process.env.ROTOBOT_HOSTED === "1"
+        ? "Add ANTHROPIC_API_KEY under Environment in your hosting dashboard; the service restarts on its own."
+        : "Add ANTHROPIC_API_KEY to your .env file and restart the server.";
     const message =
-      err?.status === 401
-        ? "Claude API authentication failed. Set ANTHROPIC_API_KEY in your .env file."
+      err?.code === "NO_API_KEY"
+        ? `The assistant needs a Claude API key. ${keyLocation} Everything else in the app works without one.`
+        : err?.status === 401
+        ? `Claude rejected the API key. ${keyLocation}`
         : err?.status === 429
         ? "Rate limited by the Claude API. Wait a moment and try again."
         : err?.message || "The assistant hit an unexpected error.";
