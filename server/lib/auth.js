@@ -64,6 +64,11 @@ export function gate(req, res, next) {
   if (req.path.startsWith("/api/")) {
     return res.status(401).json({ error: "Not signed in." });
   }
+  // Real assets were already served upstream, so anything file-shaped reaching
+  // here doesn't exist. Let it fall through to a genuine 404 - redirecting it
+  // to the login page would hand the browser HTML in place of CSS or JS, which
+  // fails silently and looks like a broken app rather than a missing file.
+  if (/\.[a-zA-Z0-9]{1,8}$/.test(req.path)) return next();
   return res.redirect("/login");
 }
 
