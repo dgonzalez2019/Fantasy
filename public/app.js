@@ -440,6 +440,15 @@ async function loadAccounts() {
       $("#yahoo-hint").textContent = capabilities.yahooConfigured
         ? "Sends you to Yahoo's own sign-in page. Your password is never entered here."
         : "Yahoo needs one-time app credentials before you can log in — see below.";
+
+      // Hosted: the ESPN handoff would open a window on the server, not here.
+      if (!capabilities.espnBrowserLogin) {
+        $("#espn-login").hidden = true;
+        $("#espn-login-hint").textContent =
+          "This app is hosted, so the browser login can't run here. Paste your ESPN cookies below instead.";
+        const details = document.querySelector("#espn-body details.fallback");
+        if (details) details.open = true;
+      }
     }
     if (mock && !document.querySelector(".banner")) {
       const banner = el("div", "banner", "Mock data mode — showing a sample league. Restart without ROTOBOT_MOCK=1 to use live data.");

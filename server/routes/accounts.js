@@ -40,9 +40,11 @@ router.get("/", (req, res) => {
   const store = readStore();
   res.json({
     mock: MOCK,
-    // Tells the UI whether it can offer one-click login buttons.
+    // Tells the UI whether it can offer one-click login buttons. The ESPN
+    // handoff opens a window on the machine running the server, so it's
+    // meaningless once this is hosted somewhere else.
     capabilities: {
-      espnBrowserLogin: true,
+      espnBrowserLogin: process.env.ROTOBOT_HOSTED !== "1",
       yahooConfigured: Boolean(yahoo.configuredCredentials()),
     },
     accounts: ["sleeper", "espn", "yahoo"].map((p) => publicView(p, store.accounts[p])),

@@ -37,6 +37,46 @@ npm run mock
 Serves a full sample league so you can click through every tab. The AI chat still needs
 a real API key.
 
+## Putting it on the internet
+
+Running `npm start` gives you a site at `localhost:3000` on your own machine. That is the
+best place for it: the ESPN login opens a browser window on whatever machine runs the
+server, so it only works locally.
+
+If you want a URL you can reach from your phone, deploy it — but **set
+`ROTOBOT_ACCESS_CODE` first**. Without it the site is open to anyone who finds the URL,
+which means your linked fantasy accounts and an unmetered chat endpoint spending your
+Claude credits. The server warns at startup when it's unset, and refuses nothing else —
+it's on you.
+
+**Render** (free tier, config included):
+
+1. Push this repo to your GitHub account
+2. In Render: New → Blueprint → pick the repo (it reads `render.yaml`)
+3. Set `ROTOBOT_ACCESS_CODE` and `ANTHROPIC_API_KEY` in the dashboard
+4. Deploy, then open the URL and enter your access code
+
+**Docker** (anywhere else):
+
+```bash
+docker build -t rotobot .
+docker run -p 3000:3000 \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  -e ROTOBOT_ACCESS_CODE=pick-something-long \
+  -v rotobot-data:/app/data \
+  rotobot
+```
+
+Two things change when hosted (`ROTOBOT_HOSTED=1`, set by both configs above):
+
+- The ESPN browser login is hidden, since it would open a window on the server. Paste
+  your `espn_s2` / `SWID` cookies in Settings instead.
+- Yahoo login gets *easier* — Yahoo requires an HTTPS redirect URI, which a hosted
+  deployment already has. Point `YAHOO_REDIRECT_URI` at
+  `https://your-app.onrender.com/api/accounts/yahoo/callback`.
+
+Keep the `data/` volume mounted, or your linked accounts reset on every redeploy.
+
 ## Logging in
 
 **Your password is never typed into this app.** Each provider hands you off to its own
@@ -97,6 +137,8 @@ curl "localhost:3000/api/chat/context?provider=sleeper&leagueId=YOUR_LEAGUE_ID"
 | `YAHOO_CLIENT_ID` | — | Makes Yahoo a one-click login |
 | `YAHOO_CLIENT_SECRET` | — | Paired with the above |
 | `YAHOO_REDIRECT_URI` | — | Must match your Yahoo app config (HTTPS) |
+| `ROTOBOT_ACCESS_CODE` | — | Required to host publicly; enables the sign-in gate |
+| `ROTOBOT_HOSTED` | unset | `1` when deployed; swaps ESPN login for cookie entry |
 
 ## API
 

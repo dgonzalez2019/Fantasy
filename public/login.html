@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>RotoBot — Sign in</title>
+<link rel="stylesheet" href="/styles.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏈</text></svg>" />
+<style>
+  .gate { display: grid; place-items: center; min-height: 100dvh; padding: 20px; }
+  .gate .card { width: 100%; max-width: 340px; margin: 0; text-align: center; }
+  .gate .logo-mark { width: 44px; height: 44px; font-size: 22px; margin: 0 auto 14px; }
+  .gate .btn { width: 100%; margin-top: 12px; }
+  .gate input { text-align: center; letter-spacing: .05em; }
+</style>
+</head>
+<body>
+<div class="gate">
+  <form class="card" id="form">
+    <div class="logo-mark">🏈</div>
+    <h2>RotoBot</h2>
+    <p class="sub">Enter your access code to continue.</p>
+    <div class="field" style="margin-top:16px">
+      <input type="password" id="code" placeholder="Access code" autocomplete="current-password" autofocus />
+    </div>
+    <button class="btn" type="submit">Sign in</button>
+    <div class="status-msg" id="status"></div>
+  </form>
+</div>
+<script>
+  const form = document.getElementById("form");
+  const status = document.getElementById("status");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    status.textContent = "";
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: document.getElementById("code").value }),
+    });
+    if (res.ok) {
+      location.href = "/";
+    } else {
+      const data = await res.json().catch(() => ({}));
+      status.textContent = data.error || "Sign in failed.";
+      status.className = "status-msg err";
+    }
+  });
+</script>
+</body>
+</html>
